@@ -1,0 +1,308 @@
+{
+    "command": "traffic",
+    "argument": "",
+    "result": {
+        "flows": [
+            {
+                "from": {
+                    "id": 401,
+                    "lastseen": 1524734414,
+                    "ips": [
+                        "37.34.57.14"
+                    ],
+                    "domains": [
+                        "vps2.lastdrager.com.",
+                        "elmer.lastdrager.com."
+                    ]
+                },
+                "to": {
+                    "id": 1,
+                    "name": "Macbook Elmer",
+                    "mac": "00:50:b6:66:4d:a9",
+                    "lastseen": 1524734414,
+                    "ips": [
+                        "192.168.8.16",
+                        "fe80::18b1:c7c2:9719:be"
+                    ],
+                    "domains": [
+
+                    ]
+                },
+                "from_port": 22,
+                "to_port": 62705,
+                "size": 410,
+                "count": 1
+            },
+            {
+                "from": {
+                    "id": 19,
+                    "lastseen": 1524734414,
+                    "ips": [
+                        "192.168.2.175"
+                    ],
+                    "domains": [
+
+                    ]
+                },
+                "to": {
+                    "id": 1,
+                    "name": "Macbook Elmer",
+                    "mac": "00:50:b6:66:4d:a9",
+                    "lastseen": 1524734414,
+                    "ips": [
+                        "192.168.8.16",
+                        "fe80::18b1:c7c2:9719:be"
+                    ],
+                    "domains": [
+
+                    ]
+                },
+                "from_port": 443,
+                "to_port": 63117,
+                "size": 0,
+                "count": 2
+            },
+            {
+                "from": {
+                    "id": 19,
+                    "lastseen": 1524734414,
+                    "ips": [
+                        "192.168.2.175"
+                    ],
+                    "domains": [
+
+                    ]
+                },
+                "to": {
+                    "id": 1,
+                    "name": "Macbook Elmer",
+                    "mac": "00:50:b6:66:4d:a9",
+                    "lastseen": 1524734414,
+                    "ips": [
+                        "192.168.8.16",
+                        "fe80::18b1:c7c2:9719:be"
+                    ],
+                    "domains": [
+
+                    ]
+                },
+                "from_port": 443,
+                "to_port": 63118,
+                "size": 0,
+                "count": 2
+            },
+            {
+                "from": {
+                    "id": 19,
+                    "lastseen": 1524734414,
+                    "ips": [
+                        "192.168.2.175"
+                    ],
+                    "domains": [
+
+                    ]
+                },
+                "to": {
+                    "id": 1,
+                    "name": "Macbook Elmer",
+                    "mac": "00:50:b6:66:4d:a9",
+                    "lastseen": 1524734414,
+                    "ips": [
+                        "192.168.8.16",
+                        "fe80::18b1:c7c2:9719:be"
+                    ],
+                    "domains": [
+
+                    ]
+                },
+                "from_port": 443,
+                "to_port": 63119,
+                "size": 0,
+                "count": 2
+            },
+            {
+                "from": {
+                    "id": 19,
+                    "lastseen": 1524734414,
+                    "ips": [
+                        "192.168.2.175"
+                    ],
+                    "domains": [
+
+                    ]
+                },
+                "to": {
+                    "id": 1,
+                    "name": "Macbook Elmer",
+                    "mac": "00:50:b6:66:4d:a9",
+                    "lastseen": 1524734414,
+                    "ips": [
+                        "192.168.8.16",
+                        "fe80::18b1:c7c2:9719:be"
+                    ],
+                    "domains": [
+
+                    ]
+                },
+                "from_port": 443,
+                "to_port": 63120,
+                "size": 11734,
+                "count": 26
+            },
+            {
+                "from": {
+                    "id": 1,
+                    "name": "Macbook Elmer",
+                    "mac": "00:50:b6:66:4d:a9",
+                    "lastseen": 1524734414,
+                    "ips": [
+                        "192.168.8.16",
+                        "fe80::18b1:c7c2:9719:be"
+                    ],
+                    "domains": [
+
+                    ]
+                },
+                "to": {
+                    "id": 401,
+                    "lastseen": 1524734414,
+                    "ips": [
+                        "37.34.57.14"
+                    ],
+                    "domains": [
+                        "vps2.lastdrager.com.",
+                        "elmer.lastdrager.com."
+                    ]
+                },
+                "from_port": 62705,
+                "to_port": 22,
+                "size": 0,
+                "count": 2
+            },
+            {
+                "from": {
+                    "id": 1,
+                    "name": "Macbook Elmer",
+                    "mac": "00:50:b6:66:4d:a9",
+                    "lastseen": 1524734414,
+                    "ips": [
+                        "192.168.8.16",
+                        "fe80::18b1:c7c2:9719:be"
+                    ],
+                    "domains": [
+
+                    ]
+                },
+                "to": {
+                    "id": 19,
+                    "lastseen": 1524734414,
+                    "ips": [
+                        "192.168.2.175"
+                    ],
+                    "domains": [
+
+                    ]
+                },
+                "from_port": 63117,
+                "to_port": 443,
+                "size": 166,
+                "count": 6
+            },
+            {
+                "from": {
+                    "id": 1,
+                    "name": "Macbook Elmer",
+                    "mac": "00:50:b6:66:4d:a9",
+                    "lastseen": 1524734414,
+                    "ips": [
+                        "192.168.8.16",
+                        "fe80::18b1:c7c2:9719:be"
+                    ],
+                    "domains": [
+
+                    ]
+                },
+                "to": {
+                    "id": 19,
+                    "lastseen": 1524734414,
+                    "ips": [
+                        "192.168.2.175"
+                    ],
+                    "domains": [
+
+                    ]
+                },
+                "from_port": 63118,
+                "to_port": 443,
+                "size": 166,
+                "count": 6
+            },
+            {
+                "from": {
+                    "id": 1,
+                    "name": "Macbook Elmer",
+                    "mac": "00:50:b6:66:4d:a9",
+                    "lastseen": 1524734414,
+                    "ips": [
+                        "192.168.8.16",
+                        "fe80::18b1:c7c2:9719:be"
+                    ],
+                    "domains": [
+
+                    ]
+                },
+                "to": {
+                    "id": 19,
+                    "lastseen": 1524734414,
+                    "ips": [
+                        "192.168.2.175"
+                    ],
+                    "domains": [
+
+                    ]
+                },
+                "from_port": 63120,
+                "to_port": 443,
+                "size": 17466,
+                "count": 66
+            }
+        ],
+        "timestamp": 1524734415,
+        "total_size": 29942,
+        "total_count": 113
+    }
+}
+
+{
+    "command": "dnsquery",
+    "result": {
+        "from": {
+            "id": 68,
+            "lastseen": 1524729497,
+            "ips": [
+                "2a00:d78::7ff:e695:6eff:fe41:b818"
+            ],
+            "domains": [
+
+            ]
+        },
+        "queriednode": {
+            "id": 13,
+            "lastseen": 1524729506,
+            "ips": [
+                "18.194.179.39",
+                "18.196.14.186",
+                "52.29.249.11",
+                "52.57.25.40",
+                "52.57.120.209",
+                "52.57.125.18"
+            ],
+            "domains": [
+                "dev-prod06.conferdeploy.net."
+            ]
+        },
+        "query": "dev-prod06.conferdeploy.net."
+    }
+}
+
+

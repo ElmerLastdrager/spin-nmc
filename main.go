@@ -5,17 +5,21 @@
 package main
 
 import (
+	"fmt"
 	"time"
 )
 
 func main() {
-	// Setup for incoming connections.
+	InitHistory(false, "") // initialize history service
 
 	client := ConnectToBroker("192.168.8.1", "1884")
 
 	HandleKillSignal(client)
 
 	for {
-		time.Sleep(10 * time.Second)
+		time.Sleep(30 * time.Second)
+		History.RLock()
+		fmt.Printf("History: %+v\n", History)
+		History.RUnlock()
 	}
 }

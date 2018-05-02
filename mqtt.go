@@ -92,7 +92,7 @@ func onDisconnectHandler(client mqtt.Client, err error) {
 }
 
 func messageHandler(client mqtt.Client, msg mqtt.Message) {
-	fmt.Printf("TOPIC: %s\n", msg.Topic())
+	//fmt.Printf("TOPIC: %s\n", msg.Topic())
 	//fmt.Printf("MSG: %s\n", msg.Payload())
 
 	var parsed SPINdata
@@ -101,5 +101,8 @@ func messageHandler(client mqtt.Client, msg mqtt.Message) {
 		fmt.Println("Error while parsing", err)
 		return
 	}
-	fmt.Printf("MSG: %+v\n", parsed)
+	//fmt.Printf("MSG: %+v\n", parsed)
+	if !HistoryAdd(parsed) {
+		fmt.Println("messageHandler(): unable to add flow to history")
+	}
 }
