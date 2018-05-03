@@ -8,11 +8,6 @@
  * We have to account for that.
  */
 
-/*
- * TODO
- * - Option to subscribe to history (e.g. anomaly detection). Subscribe on new flow, existing flow, dns lookup
- */
-
 package main
 
 import (
