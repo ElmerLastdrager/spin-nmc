@@ -306,3 +306,10 @@
 }
 
 
+JSON:  { "command": "filters", "result":  [ "fd10:7843:ccc3::3b5" , "::1" , "127.0.0.1" , "192.168.8.1" , "192.168.1.2" , "2a00:d78::7ff:e695:6eff:fe41:b818" , "0.0.0.0" , "fd10:7843:ccc3::e695:6eff:fe41:b818" , "fe80::e695:6eff:fe41:b818" ]  }
+JSON:  { "command": "blocks", "result":  [ "192.0.73.2" ]  }
+JSON:  { "command": "alloweds", "result":  [ ]  }
+
+HistoryAdd() failed:  blocked
+messageHandler(): unable to add flow to history
+Error while parsing json: cannot unmarshal array into Go struct field SPINdata.Result of type main.SPINresult

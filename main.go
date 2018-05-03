@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+const CHANNEL_BUFFER = 100
+
 func main() {
 	InitHistory(false, "") // initialize history service
 

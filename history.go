@@ -22,8 +22,6 @@ import (
 	"time"
 )
 
-const CHANNEL_BUFFER = 100
-
 var History = struct {
 	sync.RWMutex
 	m           HistoryDB
@@ -57,12 +55,12 @@ type Device struct {
 	Addresses []net.IP            // local addresses at which this device is known
 }
 
-var Subscribers = struct {
+var subscribers = struct {
 	sync.RWMutex
-	ExtraTraffic []chan SubFlow // Subscribers that want repeat traffic. Provides a Flow.
-	Resolve      []chan SubDNS  // Subscribers that want all DNS resolver data. Provides SubFlow struct
-	NewDevice    []chan int     // Subscribers that want to get informed about new devices. Providers int
-	NewTraffic   []chan SubFlow // Subscribers that want to get only new flows
+	ExtraTraffic []chan SubFlow // subscribers that want repeat traffic. Provides a Flow.
+	Resolve      []chan SubDNS  // subscribers that want all DNS resolver data. Provides SubFlow struct
+	NewDevice    []chan int     // subscribers that want to get informed about new devices. Providers int
+	NewTraffic   []chan SubFlow // subscribers that want to get only new flows
 }{ExtraTraffic: []chan SubFlow{},
 	Resolve:    []chan SubDNS{},
 	NewDevice:  []chan int{},
@@ -79,6 +77,9 @@ type SubFlow struct {
 	NewFlow  Flow // The Flow that is new or has new data
 }
 
+// channel to which we listen for messages
+var brokerchan chan SPINdata
+
 // Initialisation
 func InitHistory(load bool, fp string) {
 	// Initialize history service
@@ -92,6 +93,18 @@ func InitHistory(load bool, fp string) {
 	if History.m.Devices == nil {
 		History.m.Devices = make(map[int]Device)
 	}
+	brokerchan = BrokerSubscribeData()
+	go func() {
+		for {
+			data, ok := <-brokerchan
+			if !ok {
+				break
+			}
+			if !HistoryAdd(data) {
+				fmt.Println("messageHandler(): unable to add flow to history")
+			}
+		}
+	}()
 	History.initialised = true
 }
 
@@ -220,10 +233,11 @@ func HistoryAdd(msg SPINdata) bool {
 
 		return true
 	}
+	fmt.Println("HistoryAdd() failed: ", msg.Command)
 	return false
 }
 
-// Requires Write lock on the History (in case of new device)
+// Requires Read lock on the History
 // Returns device information, or returns new one
 func getDevice(deviceid int) Device {
 	dev, exists := History.m.Devices[deviceid]
@@ -256,11 +270,11 @@ func mergeIP(ip1 []net.IP, ip2 []net.IP) []net.IP {
 
 // Subscribe to DNS resolve results
 func SubscribeResolve() chan SubDNS {
-	Subscribers.Lock()
-	defer Subscribers.Unlock()
+	subscribers.Lock()
+	defer subscribers.Unlock()
 
 	ch := make(chan SubDNS, CHANNEL_BUFFER)
-	Subscribers.Resolve = append(Subscribers.Resolve, ch)
+	subscribers.Resolve = append(subscribers.Resolve, ch)
 	return ch
 }
 
@@ -268,46 +282,46 @@ func notifyResolve(deviceid int, request string, reply []net.IP) {
 	// make new SubDNS
 	msg := SubDNS{Deviceid: deviceid, Request: request, Reply: reply}
 
-	Subscribers.RLock()
-	defer Subscribers.RUnlock()
-	for _, ch := range Subscribers.Resolve {
+	subscribers.RLock()
+	defer subscribers.RUnlock()
+	for _, ch := range subscribers.Resolve {
 		ch <- msg
 	}
 }
 
 // New device
 func SubscribeNewDevice() chan int {
-	Subscribers.Lock()
-	defer Subscribers.Unlock()
+	subscribers.Lock()
+	defer subscribers.Unlock()
 
 	ch := make(chan int, CHANNEL_BUFFER)
-	Subscribers.NewDevice = append(Subscribers.NewDevice, ch)
+	subscribers.NewDevice = append(subscribers.NewDevice, ch)
 	return ch
 }
 
 func notifyNewDevice(dev int) {
-	Subscribers.RLock()
-	defer Subscribers.RUnlock()
-	for _, ch := range Subscribers.NewDevice {
+	subscribers.RLock()
+	defer subscribers.RUnlock()
+	for _, ch := range subscribers.NewDevice {
 		ch <- dev
 	}
 }
 
 // New Traffic
 func SubscribeNewTraffic() chan SubFlow {
-	Subscribers.Lock()
-	defer Subscribers.Unlock()
+	subscribers.Lock()
+	defer subscribers.Unlock()
 
 	ch := make(chan SubFlow, CHANNEL_BUFFER)
-	Subscribers.NewTraffic = append(Subscribers.NewTraffic, ch)
+	subscribers.NewTraffic = append(subscribers.NewTraffic, ch)
 	return ch
 }
 
 func notifyNewTraffic(deviceid int, floworig Flow) {
-	Subscribers.RLock()
-	defer Subscribers.RUnlock()
+	subscribers.RLock()
+	defer subscribers.RUnlock()
 
-	for _, ch := range Subscribers.NewTraffic {
+	for _, ch := range subscribers.NewTraffic {
 		// We make a new flow for every subscriber, so that they will not bother eachother
 		flow := flowdup(floworig)
 		msg := SubFlow{Deviceid: deviceid, NewFlow: flow}
@@ -317,19 +331,19 @@ func notifyNewTraffic(deviceid int, floworig Flow) {
 
 // Traffic to existing flow
 func SubscribeExtraTraffic() chan SubFlow {
-	Subscribers.Lock()
-	defer Subscribers.Unlock()
+	subscribers.Lock()
+	defer subscribers.Unlock()
 
 	ch := make(chan SubFlow, CHANNEL_BUFFER)
-	Subscribers.ExtraTraffic = append(Subscribers.ExtraTraffic, ch)
+	subscribers.ExtraTraffic = append(subscribers.ExtraTraffic, ch)
 	return ch
 }
 
 func notifyExtraTraffic(deviceid int, floworig Flow) {
-	Subscribers.RLock()
-	defer Subscribers.RUnlock()
+	subscribers.RLock()
+	defer subscribers.RUnlock()
 
-	for _, ch := range Subscribers.ExtraTraffic {
+	for _, ch := range subscribers.ExtraTraffic {
 		flow := flowdup(floworig)
 		msg := SubFlow{Deviceid: deviceid, NewFlow: flow}
 		ch <- msg
@@ -374,12 +388,39 @@ func listDevices() []int {
 	return keys
 }
 
+// Try to figure out which DNS lookups correspond with a list of IPs
+// Tries first only the device itself
+// If fail, tries to search lookups from other devices
+// If that fails too, returns an empty list
+func IPToName(deviceid int, ips []net.IP) []string {
+	found := map[string]struct{}{}
+	History.RLock()
+	defer History.RUnlock()
+	dev := getDevice(deviceid)
+	if len(dev.Resolved) > 0 {
+		for host, iplist := range dev.Resolved {
+			for _, ip := range iplist {
+				for _, test := range ips {
+					if test.Equal(ip) {
+						found[host] = struct{}{}
+					}
+				}
+			}
+		}
+	} // else: new device, or nothing resolved yet
+	out := []string{}
+	for hostname := range found {
+		out = append(out, hostname)
+	}
+	return out
+}
+
 func KillHistory() {
 	// Immediate shutdown
-	Subscribers.RLock()
-	defer Subscribers.RUnlock()
+	subscribers.RLock()
+	defer subscribers.RUnlock()
 
-	for _, ch := range Subscribers.Resolve {
+	for _, ch := range subscribers.Resolve {
 		close(ch)
 	}
 	time.Sleep(250 * time.Millisecond)

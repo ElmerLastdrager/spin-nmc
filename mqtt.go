@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/eclipse/paho.mqtt.golang"
 )
@@ -46,7 +47,25 @@ type SPINdata struct {
 	Result   SPINresult
 }
 
+type SPINfilter struct { // Typically used for blocks, filter lists etc.
+	Command string
+	Result  []string
+}
+
+// Used to send commands to the server
+type SPINcommand struct {
+	Command  string
+	Argument string
+}
+
 var client mqtt.Client
+
+var mqttsubscribers = struct {
+	sync.RWMutex
+	Data   []chan SPINdata
+	Filter []chan SPINfilter
+}{Data: []chan SPINdata{},
+	Filter: []chan SPINfilter{}}
 
 func ConnectToBroker(ip string, port string) mqtt.Client {
 	// Connect to message broker, returns new Client.
@@ -66,6 +85,14 @@ func ConnectToBroker(ip string, port string) mqtt.Client {
 }
 
 func KillBroker() {
+	mqttsubscribers.RLock()
+	for _, s := range mqttsubscribers.Data {
+		close(s)
+	}
+	for _, s := range mqttsubscribers.Filter {
+		close(s)
+	}
+	defer mqttsubscribers.RUnlock()
 	client.Disconnect(250) // disconnect and wait 250ms for it to finish
 }
 
@@ -89,15 +116,57 @@ func messageHandler(client mqtt.Client, msg mqtt.Message) {
 	//fmt.Printf("MSG: %s\n", msg.Payload())
 
 	var parsed SPINdata
+	var parsedf SPINfilter
 	err := json.Unmarshal(msg.Payload(), &parsed)
 	if err != nil {
-		fmt.Println("Error while parsing", err)
-		return
-	}
-
-	go func(parsed SPINdata) {
-		if !HistoryAdd(parsed) {
-			fmt.Println("messageHandler(): unable to add flow to history")
+		// Try parsing as filter!
+		err := json.Unmarshal(msg.Payload(), &parsedf)
+		if err != nil {
+			fmt.Println("Error while parsing", err)
+			fmt.Println("JSON: ", string(msg.Payload()))
+			return
 		}
-	}(parsed)
+		go notifyFilter(parsedf)
+	} else {
+		go notifyData(parsed)
+	}
 }
+
+func BrokerSubscribeData() chan SPINdata {
+	mqttsubscribers.Lock() // obtain a write-lock
+	defer mqttsubscribers.Unlock()
+	ch := make(chan SPINdata, CHANNEL_BUFFER)
+	mqttsubscribers.Data = append(mqttsubscribers.Data, ch)
+	return ch
+}
+
+func notifyData(data SPINdata) {
+	subscribers.RLock()
+	defer subscribers.RUnlock()
+
+	for _, ch := range mqttsubscribers.Data {
+		ch <- data
+	}
+}
+
+func BrokerSubscribeFilter() chan SPINfilter {
+	mqttsubscribers.Lock() // obtain a write-lock
+	defer mqttsubscribers.Unlock()
+	ch := make(chan SPINfilter, CHANNEL_BUFFER)
+	mqttsubscribers.Filter = append(mqttsubscribers.Filter, ch)
+	return ch
+}
+
+func notifyFilter(data SPINfilter) {
+	subscribers.RLock()
+	defer subscribers.RUnlock()
+
+	for _, ch := range mqttsubscribers.Filter {
+		ch <- data
+	}
+}
+
+//
+// func BrokerSubscribeInfo(topic string) chan SPINfilter {
+//     // body
+// }

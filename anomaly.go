@@ -29,7 +29,7 @@ func printResolved(ch chan SubDNS) {
 		if !cont { // channel is closed
 			break
 		}
-		fmt.Println("Anomaly: device ", req.Deviceid, " DNS request = ", req.Request)
+		fmt.Println("AD: device ", req.Deviceid, " DNS request = ", req.Request)
 	}
 }
 
@@ -39,9 +39,15 @@ func printNewTraffic(ch chan SubFlow) {
 		if !cont { // channel is closed
 			break
 		}
-		fmt.Print("Anomaly: New Flow from ", flowinfo.Deviceid, " to device ", flowinfo.NewFlow.NodeId)
-		for _, ip := range flowinfo.NewFlow.RemoteIps {
-			fmt.Print(" ", ip.String())
+		fmt.Print("AD: New Flow from ", flowinfo.Deviceid, " to device ", flowinfo.NewFlow.NodeId)
+		hostnames := IPToName(flowinfo.Deviceid, flowinfo.NewFlow.RemoteIps)
+		if len(hostnames) == 0 {
+			for _, ip := range flowinfo.NewFlow.RemoteIps {
+				hostnames = append(hostnames, ip.String())
+			}
+		}
+		for _, host := range hostnames {
+			fmt.Print(" ", host)
 		}
 		fmt.Println(" on port", flowinfo.NewFlow.RemotePort)
 	}
