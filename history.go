@@ -22,6 +22,8 @@ import (
 	"time"
 )
 
+const CHANNEL_BUFFER = 100
+
 var History = struct {
 	sync.RWMutex
 	m           HistoryDB
@@ -55,6 +57,29 @@ type Device struct {
 	Addresses []net.IP            // local addresses at which this device is known
 }
 
+var Subscribers = struct {
+	sync.RWMutex
+	ExtraTraffic []chan SubFlow // Subscribers that want repeat traffic. Provides a Flow.
+	Resolve      []chan SubDNS  // Subscribers that want all DNS resolver data. Provides SubFlow struct
+	NewDevice    []chan int     // Subscribers that want to get informed about new devices. Providers int
+	NewTraffic   []chan SubFlow // Subscribers that want to get only new flows
+}{ExtraTraffic: []chan SubFlow{},
+	Resolve:    []chan SubDNS{},
+	NewDevice:  []chan int{},
+	NewTraffic: []chan SubFlow{}}
+
+type SubDNS struct {
+	Deviceid int      // SPIN id for the device
+	Request  string   // DNS request, e.g.: example.nl
+	Reply    []net.IP // DNS reply, e.g.: 127.0.0.1
+}
+
+type SubFlow struct {
+	Deviceid int  // SPIN id for the device
+	NewFlow  Flow // The Flow that is new or has new data
+}
+
+// Initialisation
 func InitHistory(load bool, fp string) {
 	// Initialize history service
 	// if load: tries to reload from disk
@@ -121,13 +146,7 @@ func HistoryAdd(msg SPINdata) bool {
 				byReceived, bySent, packReceived, packSent = flow.Size, 0, flow.Count, 0
 			}
 
-			// TODO debug all vars
-
 			idx, histflow := findFlow(dev.Flows, remote.Id, remoteport)
-
-			// FIXME DEBUG
-			fmt.Println("Flow: ", idx, deviceid, remote.Id, remoteport, byReceived, bySent, packReceived, packSent, time.Unix(int64(msg.Result.Timestamp), 0))
-
 			if idx < 0 {
 				// create new
 				histflow = Flow{RemoteIps: ips, NodeId: remote.Id, RemotePort: remoteport, BytesReceived: byReceived,
@@ -135,6 +154,7 @@ func HistoryAdd(msg SPINdata) bool {
 					FirstActivity: time.Unix(int64(msg.Result.Timestamp), 0),
 					LastActivity:  time.Unix(int64(msg.Result.Timestamp), 0)}
 				dev.Flows = append(dev.Flows, histflow)
+				go notifyNewTraffic(deviceid, histflow)
 			} else {
 				// update
 				histflow.RemoteIps = mergeIP(histflow.RemoteIps, ips)
@@ -144,6 +164,7 @@ func HistoryAdd(msg SPINdata) bool {
 				histflow.PacketsSent += packSent
 				histflow.LastActivity = time.Unix(int64(msg.Result.Timestamp), 0)
 				dev.Flows[idx] = histflow
+				go notifyExtraTraffic(deviceid, histflow)
 			}
 
 			// Store results
@@ -158,8 +179,6 @@ func HistoryAdd(msg SPINdata) bool {
 		return true
 	case "dnsquery":
 		// do that
-		fmt.Println("DNS query for", msg.Result.Query)
-
 		deviceid := msg.Result.From.Id
 
 		History.Lock() // obtain write-lock
@@ -197,12 +216,14 @@ func HistoryAdd(msg SPINdata) bool {
 		// put results back to History
 		History.m.Devices[deviceid] = dev
 
+		go notifyResolve(deviceid, msg.Result.Query, rip)
+
 		return true
 	}
 	return false
 }
 
-// Requires (at least) a Read lock on the History
+// Requires Write lock on the History (in case of new device)
 // Returns device information, or returns new one
 func getDevice(deviceid int) Device {
 	dev, exists := History.m.Devices[deviceid]
@@ -211,6 +232,7 @@ func getDevice(deviceid int) Device {
 		dev = Device{Mac: nil, SpinId: deviceid, Lastseen: time.Now(),
 			Flows: []Flow{}, Resolved: make(map[string][]net.IP),
 			Addresses: []net.IP{}}
+		go notifyNewDevice(deviceid) // notify interested parties
 	}
 	return dev
 }
@@ -232,6 +254,98 @@ func mergeIP(ip1 []net.IP, ip2 []net.IP) []net.IP {
 	return ip1
 }
 
+// Subscribe to DNS resolve results
+func SubscribeResolve() chan SubDNS {
+	Subscribers.Lock()
+	defer Subscribers.Unlock()
+
+	ch := make(chan SubDNS, CHANNEL_BUFFER)
+	Subscribers.Resolve = append(Subscribers.Resolve, ch)
+	return ch
+}
+
+func notifyResolve(deviceid int, request string, reply []net.IP) {
+	// make new SubDNS
+	msg := SubDNS{Deviceid: deviceid, Request: request, Reply: reply}
+
+	Subscribers.RLock()
+	defer Subscribers.RUnlock()
+	for _, ch := range Subscribers.Resolve {
+		ch <- msg
+	}
+}
+
+// New device
+func SubscribeNewDevice() chan int {
+	Subscribers.Lock()
+	defer Subscribers.Unlock()
+
+	ch := make(chan int, CHANNEL_BUFFER)
+	Subscribers.NewDevice = append(Subscribers.NewDevice, ch)
+	return ch
+}
+
+func notifyNewDevice(dev int) {
+	Subscribers.RLock()
+	defer Subscribers.RUnlock()
+	for _, ch := range Subscribers.NewDevice {
+		ch <- dev
+	}
+}
+
+// New Traffic
+func SubscribeNewTraffic() chan SubFlow {
+	Subscribers.Lock()
+	defer Subscribers.Unlock()
+
+	ch := make(chan SubFlow, CHANNEL_BUFFER)
+	Subscribers.NewTraffic = append(Subscribers.NewTraffic, ch)
+	return ch
+}
+
+func notifyNewTraffic(deviceid int, floworig Flow) {
+	Subscribers.RLock()
+	defer Subscribers.RUnlock()
+
+	for _, ch := range Subscribers.NewTraffic {
+		// We make a new flow for every subscriber, so that they will not bother eachother
+		flow := flowdup(floworig)
+		msg := SubFlow{Deviceid: deviceid, NewFlow: flow}
+		ch <- msg
+	}
+}
+
+// Traffic to existing flow
+func SubscribeExtraTraffic() chan SubFlow {
+	Subscribers.Lock()
+	defer Subscribers.Unlock()
+
+	ch := make(chan SubFlow, CHANNEL_BUFFER)
+	Subscribers.ExtraTraffic = append(Subscribers.ExtraTraffic, ch)
+	return ch
+}
+
+func notifyExtraTraffic(deviceid int, floworig Flow) {
+	Subscribers.RLock()
+	defer Subscribers.RUnlock()
+
+	for _, ch := range Subscribers.ExtraTraffic {
+		flow := flowdup(floworig)
+		msg := SubFlow{Deviceid: deviceid, NewFlow: flow}
+		ch <- msg
+	}
+}
+
+// Makes sure to deep copy a flow.
+// All normal variables are copied by value already.
+// Slices need a copy()
+func flowdup(flow Flow) Flow {
+	tmp := flow // now tmp contains copy-by-ref slice
+	// manually copy slice into tmp
+	copy(tmp.RemoteIps, flow.RemoteIps)
+	return tmp
+}
+
 // Requires at least a read lock on History
 // Returns index and the corresponding Flow, or index = -1 if no flows were found
 // The index is only valid until you release the read lock
@@ -242,4 +356,31 @@ func findFlow(flows []Flow, id int, port int) (int, Flow) {
 		}
 	}
 	return -1, Flow{}
+}
+
+// Returns a list of all devices
+func HistoryListDevices() []int {
+	History.RLock()
+	defer History.RUnlock()
+	return listDevices()
+}
+
+// Requires read lock
+func listDevices() []int {
+	keys := []int{}
+	for i, _ := range History.m.Devices {
+		keys = append(keys, i)
+	}
+	return keys
+}
+
+func KillHistory() {
+	// Immediate shutdown
+	Subscribers.RLock()
+	defer Subscribers.RUnlock()
+
+	for _, ch := range Subscribers.Resolve {
+		close(ch)
+	}
+	time.Sleep(250 * time.Millisecond)
 }

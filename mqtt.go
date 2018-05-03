@@ -7,10 +7,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/eclipse/paho.mqtt.golang"
 	"os"
-	"os/signal"
-	"syscall"
+
+	"github.com/eclipse/paho.mqtt.golang"
 )
 
 type SPINnode struct {
@@ -47,6 +46,8 @@ type SPINdata struct {
 	Result   SPINresult
 }
 
+var client mqtt.Client
+
 func ConnectToBroker(ip string, port string) mqtt.Client {
 	// Connect to message broker, returns new Client.
 	opts := mqtt.NewClientOptions().AddBroker("ws://" + ip + ":" + port)
@@ -54,26 +55,18 @@ func ConnectToBroker(ip string, port string) mqtt.Client {
 	opts.SetAutoReconnect(true)                        // once connected, always reconnect
 	opts.SetOnConnectHandler(onConnectHandler)         // when (re)connected
 	opts.SetConnectionLostHandler(onDisconnectHandler) // when connection is lost
-	c := mqtt.NewClient(opts)
+	client = mqtt.NewClient(opts)
 
 	fmt.Println("Connecting...")
-	if token := c.Connect(); token.Wait() && token.Error() != nil {
+	if token := client.Connect(); token.Wait() && token.Error() != nil {
 		fmt.Println("Error: ", token.Error())
 	}
 
-	return c
+	return client
 }
 
-func HandleKillSignal(client mqtt.Client) {
-	// Set a signal handler
-	csig := make(chan os.Signal, 2)
-	signal.Notify(csig, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-csig
-		fmt.Println("\nDisconnecting...")
-		client.Disconnect(250) // disconnect and wait 250ms for it to finish
-		os.Exit(1)
-	}()
+func KillBroker() {
+	client.Disconnect(250) // disconnect and wait 250ms for it to finish
 }
 
 func onConnectHandler(client mqtt.Client) {
@@ -101,8 +94,10 @@ func messageHandler(client mqtt.Client, msg mqtt.Message) {
 		fmt.Println("Error while parsing", err)
 		return
 	}
-	//fmt.Printf("MSG: %+v\n", parsed)
-	if !HistoryAdd(parsed) {
-		fmt.Println("messageHandler(): unable to add flow to history")
-	}
+
+	go func(parsed SPINdata) {
+		if !HistoryAdd(parsed) {
+			fmt.Println("messageHandler(): unable to add flow to history")
+		}
+	}(parsed)
 }
