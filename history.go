@@ -68,8 +68,12 @@ type SubDNS struct {
 }
 
 type SubFlow struct {
-	Deviceid int  // SPIN id for the device
-	NewFlow  Flow // The Flow that is new or has new data
+	Deviceid        int // SPIN id for the device
+	Flowid          int // The Flow id with changes
+	BytesReceived   int // Number of bytes received by the local device
+	BytesSent       int // Number of bytes sent by the local device to the remote one
+	PacketsReceived int // Number of packets received
+	PacketsSent     int // Number of packets sent
 }
 
 // channel to which we listen for messages
@@ -162,7 +166,8 @@ func HistoryAdd(msg SPINdata) bool {
 					FirstActivity: time.Unix(int64(msg.Result.Timestamp), 0),
 					LastActivity:  time.Unix(int64(msg.Result.Timestamp), 0)}
 				dev.Flows = append(dev.Flows, histflow)
-				go notifyNewTraffic(deviceid, histflow)
+				idx, _ := findFlow(dev.Flows, remote.Id, remoteport) // Obtain index of newly added flow
+				go notifyNewTraffic(deviceid, idx, byReceived, bySent, packReceived, packSent)
 			} else {
 				// update
 				histflow.RemoteIps = mergeIP(histflow.RemoteIps, ips)
@@ -172,7 +177,7 @@ func HistoryAdd(msg SPINdata) bool {
 				histflow.PacketsSent += packSent
 				histflow.LastActivity = time.Unix(int64(msg.Result.Timestamp), 0)
 				dev.Flows[idx] = histflow
-				go notifyExtraTraffic(deviceid, histflow)
+				go notifyExtraTraffic(deviceid, idx, byReceived, bySent, packReceived, packSent)
 			}
 
 			// Store results
@@ -312,14 +317,14 @@ func SubscribeNewTraffic() chan SubFlow {
 	return ch
 }
 
-func notifyNewTraffic(deviceid int, floworig Flow) {
+func notifyNewTraffic(deviceid int, flowid int, byRecv int, bySent int, paRecv int, paSent int) {
 	subscribers.RLock()
 	defer subscribers.RUnlock()
 
 	for _, ch := range subscribers.NewTraffic {
 		// We make a new flow for every subscriber, so that they will not bother eachother
-		flow := flowdup(floworig)
-		msg := SubFlow{Deviceid: deviceid, NewFlow: flow}
+		msg := SubFlow{Deviceid: deviceid, Flowid: flowid, BytesReceived: byRecv, BytesSent: bySent,
+			PacketsReceived: paRecv, PacketsSent: paSent}
 		ch <- msg
 	}
 }
@@ -334,13 +339,13 @@ func SubscribeExtraTraffic() chan SubFlow {
 	return ch
 }
 
-func notifyExtraTraffic(deviceid int, floworig Flow) {
+func notifyExtraTraffic(deviceid int, flowid int, byRecv int, bySent int, paRecv int, paSent int) {
 	subscribers.RLock()
 	defer subscribers.RUnlock()
 
 	for _, ch := range subscribers.ExtraTraffic {
-		flow := flowdup(floworig)
-		msg := SubFlow{Deviceid: deviceid, NewFlow: flow}
+		msg := SubFlow{Deviceid: deviceid, Flowid: flowid, BytesReceived: byRecv, BytesSent: bySent,
+			PacketsReceived: paRecv, PacketsSent: paSent}
 		ch <- msg
 	}
 }

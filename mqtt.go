@@ -54,8 +54,8 @@ type SPINfilter struct { // Typically used for blocks, filter lists etc.
 
 // Used to send commands to the server
 type SPINcommand struct {
-	Command  string
-	Argument string
+	Command  string `json:"command"`
+	Argument int    `json:"argument"`
 }
 
 var client mqtt.Client
@@ -66,6 +66,11 @@ var mqttsubscribers = struct {
 	Filter []chan SPINfilter
 }{Data: []chan SPINdata{},
 	Filter: []chan SPINfilter{}}
+
+const SPIN_CMD_ADD_BLOCK = "add_block_node"
+const SPIN_CMD_REMOVE_BLOCK = "remove_block_node"
+const TOPIC_TRAFFIC = "SPIN/traffic"
+const TOPIC_COMMANDS = "SPIN/commands"
 
 func ConnectToBroker(ip string, port string) mqtt.Client {
 	// Connect to message broker, returns new Client.
@@ -99,7 +104,7 @@ func KillBroker() {
 func onConnectHandler(client mqtt.Client) {
 	// fired when a connection has been established. Either the initial, or a reconnection
 	fmt.Printf("Connected to server.\n")
-	if token := client.Subscribe("SPIN/traffic", 0, messageHandler); token.Wait() && token.Error() != nil {
+	if token := client.Subscribe(TOPIC_TRAFFIC, 0, messageHandler); token.Wait() && token.Error() != nil {
 		fmt.Println("Unable to subscribe", token.Error())
 		os.Exit(1)
 	}
@@ -163,6 +168,20 @@ func notifyFilter(data SPINfilter) {
 
 	for _, ch := range mqttsubscribers.Filter {
 		ch <- data
+	}
+}
+
+func BrokerSendCommand(command SPINcommand) {
+	// Sends command back to the broker
+	// Publish(topic string, qos byte, retained bool, payload interface{}) Token
+	bcmd, err := json.Marshal(command)
+	if err != nil {
+		fmt.Println("Error while making JSON of command", command.Command, command.Argument)
+		return
+	}
+
+	if token := client.Publish(TOPIC_COMMANDS, 0, false, bcmd); token.Wait() && token.Error() != nil {
+		fmt.Println("MQTT: Error sending command:", token.Error())
 	}
 }
 
