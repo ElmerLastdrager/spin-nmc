@@ -232,6 +232,9 @@ func HistoryAdd(msg SPINdata) bool {
 		go notifyResolve(deviceid, msg.Result.Query, rip)
 
 		return true
+	case "blocked":
+		// Ignore (for now)
+		return true
 	}
 	fmt.Println("HistoryAdd() failed: ", msg.Command)
 	return false

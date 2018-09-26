@@ -14,12 +14,13 @@ import (
 )
 
 type SPINnode struct {
-	Id       int
-	Name     string
-	Mac      string
-	Lastseen int
-	Ips      []string
-	Domains  []string
+	Id        int
+	Name      string
+	Mac       string
+	Lastseen  int
+	Ips       []string
+	Domains   []string
+	IsBlocked string `json:"is_blocked",omitempty`
 }
 
 type SPINflow struct {
