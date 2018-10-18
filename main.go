@@ -18,7 +18,7 @@ func main() {
 	InitHistory(false, "") // initialize history service
 
 	// Start modules
-	InitAnomaly() // Anomaly detection
+	InitAnomaly(false, "") // Anomaly detection
 
 	// Connect to MQTT Broker of valibox
 	ConnectToBroker("valibox.", "1884")

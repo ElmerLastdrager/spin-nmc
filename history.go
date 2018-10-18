@@ -11,8 +11,11 @@
 package main
 
 import (
+	"bufio"
+	"encoding/json"
 	"fmt"
 	"net"
+	"os"
 	"sync"
 	"time"
 )
@@ -24,30 +27,30 @@ var History = struct {
 }{m: HistoryDB{}, initialised: false}
 
 type HistoryDB struct {
-	Devices map[int]Device // map that lists all devices
+	Devices map[int]Device `json:"devices"` // map that lists all devices
 }
 
 // Flow represents an aggregated type of flow for a single device.
 // This means multiple flows to the same ip/port combination are considered one.
 type Flow struct {
-	RemoteIps       []net.IP  // ip addresses
-	NodeId          int       // SPIN Identifier for this node
-	BytesReceived   int       // Number of bytes received by the local device
-	BytesSent       int       // Number of bytes sent by the local device to the remote one
-	PacketsReceived int       // Number of packets received
-	PacketsSent     int       // Number of packets sent
-	RemotePort      int       // Port of remote server
-	FirstActivity   time.Time // First time that activity was logged
-	LastActivity    time.Time // Last activity of this flow
+	RemoteIps       []net.IP  `json:"remoteips"`       // ip addresses
+	NodeId          int       `json:"nodeid"`          // SPIN Identifier for this node
+	BytesReceived   int       `json:"bytesreceived"`   // Number of bytes received by the local device
+	BytesSent       int       `json:"bytessent"`       // Number of bytes sent by the local device to the remote one
+	PacketsReceived int       `json:"packetsreceived"` // Number of packets received
+	PacketsSent     int       `json:"packetssent"`     // Number of packets sent
+	RemotePort      int       `json:"remoteport"`      // Port of remote server
+	FirstActivity   time.Time `json:"firstactivity"`   // First time that activity was logged
+	LastActivity    time.Time `json:"lastactivity"`    // Last activity of this flow
 }
 
 type Device struct {
-	Mac       net.HardwareAddr    // Mac address of this device.
-	SpinId    int                 // SPIN node identifier, used for quick verification of MAC. And internal references.
-	Lastseen  time.Time           // Timestamp of last moment the device sent or received traffic
-	Flows     []Flow              // An array of flows for this device
-	Resolved  map[string][]net.IP // Resolved domains for this device. The key is the DNS request (domain).
-	Addresses []net.IP            // local addresses at which this device is known
+	Mac       net.HardwareAddr    `json:"mac"`       // Mac address of this device.
+	SpinId    int                 `json:"spinid"`    // SPIN node identifier, used for quick verification of MAC. And internal references.
+	Lastseen  time.Time           `json:"lastseen"`  // Timestamp of last moment the device sent or received traffic
+	Flows     []Flow              `json:"flows"`     // An array of flows for this device
+	Resolved  map[string][]net.IP `json:"resolved"`  // Resolved domains for this device. The key is the DNS request (domain).
+	Addresses []net.IP            `json:"addresses"` // local addresses at which this device is known
 }
 
 var subscribers = struct {
@@ -427,4 +430,34 @@ func KillHistory() {
 		close(ch)
 	}
 	time.Sleep(250 * time.Millisecond)
+}
+
+// Save history database into file fp
+func saveHistory(fp string) bool {
+	History.Lock()
+	defer History.Unlock()
+	b, err := json.Marshal(History)
+	if err != nil {
+		fmt.Println("Error on dumping History to json:", err)
+		return false
+	}
+
+	// Now writing to file
+	f, err := os.Create(fp)
+	if err != nil {
+		fmt.Println("Error on opening file", fp, ":", err)
+		return false
+	}
+	defer f.Close()
+
+	w := bufio.NewWriter(f)
+	n, err := w.Write(b)
+	if err != nil {
+		fmt.Println("Error on writing file", fp, ":", err)
+		return false
+	}
+
+	w.Flush()
+	fmt.Println("Wrote history to file in", n, "bytes")
+	return true
 }

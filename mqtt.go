@@ -14,43 +14,43 @@ import (
 )
 
 type SPINnode struct {
-	Id        int
-	Name      string
-	Mac       string
-	Lastseen  int
-	Ips       []string
-	Domains   []string
-	IsBlocked string `json:"is_blocked",omitempty`
+	Id        int      `json:"id"`
+	Name      string   `json:"name"`
+	Mac       string   `json:"mac"`
+	Lastseen  int      `json:"lastseen"`
+	Ips       []string `json:"ips"`
+	Domains   []string `json:"domains"`
+	IsBlocked string   `json:"is_blocked",omitempty`
 }
 
 type SPINflow struct {
-	From      SPINnode
-	To        SPINnode
-	From_port int
-	To_port   int
-	Size      int
-	Count     int
+	From      SPINnode `json:"from"`
+	To        SPINnode `json:"to"`
+	From_port int      `json:"from_port"`
+	To_port   int      `json:"to_port"`
+	Size      int      `json:"size"`
+	Count     int      `json:"count"`
 }
 
 type SPINresult struct {
-	Flows       []SPINflow // in case of flow data
-	Timestamp   int
-	Total_size  int
-	Total_count int
-	From        SPINnode // in case of dnsquery
-	Queriednode SPINnode // in case of dnsquery
-	Query       string   // in case of dnsquery
+	Flows       []SPINflow `json:"flows",omitempty` // in case of flow data
+	Timestamp   int        `json:"timestamp",omitempty`
+	Total_size  int        `json:"total_size",omitempty`
+	Total_count int        `json:"total_count",omitempty`
+	From        SPINnode   `json:"from",omitempty`        // in case of dnsquery
+	Queriednode SPINnode   `json:"queriednode",omitempty` // in case of dnsquery
+	Query       string     `json:"query",omitempty`       // in case of dnsquery
 }
 
 type SPINdata struct {
-	Command  string
-	Argument string
-	Result   SPINresult
+	Command  string     `json:"command"`
+	Argument string     `json:"argument"`
+	Result   SPINresult `json:"result"`
 }
 
 type SPINfilter struct { // Typically used for blocks, filter lists etc.
-	Command string
-	Result  []string
+	Command string   `json:"command"`
+	Result  []string `json:"result"`
 }
 
 // Used to send commands to the server

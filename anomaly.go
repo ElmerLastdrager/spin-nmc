@@ -48,7 +48,8 @@ var TrafficHistory = struct {
 }{h: map[int]*FlowSummary{}}
 
 // Initialise anomaly detection
-func InitAnomaly() {
+// if load, reload state from disk (filepath in attach)
+func InitAnomaly(load bool, fp string) {
 	// go printResolved(SubscribeResolve())
 	// go printNewTraffic(SubscribeNewTraffic())
 	go processTraffic(SubscribeNewTraffic())
@@ -234,7 +235,7 @@ func analyseTraffic(nodeid int) {
 		fmt.Println("AD: device", nodeid, "had limit of", float64(maxbytes)*PEAK_MAX_INCREASE,
 			"/", float64(recentmaxpackets)*PEAK_MAX_INCREASE, " bytes/packets", duration)
 	default:
-		// fmt.Println("AD: device", nodeid, "all okay", recentmaxbytes, "/", recentmaxpackets,
-		// 	"bytes/packets", "limit", maxbytes, "/", maxpackets)
+		fmt.Println("AD: device", nodeid, "all okay", recentmaxbytes, "/", recentmaxpackets,
+			"bytes/packets", "limit", maxbytes, "/", maxpackets)
 	}
 }
