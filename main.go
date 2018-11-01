@@ -5,6 +5,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -15,10 +16,28 @@ import (
 const CHANNEL_BUFFER = 100
 
 func main() {
-	InitHistory(false, "") // initialize history service
+	// Parse commandline arguments
+	freshPtr := flag.Bool("fresh", false, "start fresh, i.e. do not restore previous state")
+	restoreFilePtr := flag.String("db", ".spin-nmc-history.db", "restore database file")
+	flag.Parse()
 
-	// Start modules
-	InitAnomaly(false, "") // Anomaly detection
+	var hs *HistoryDB = nil
+	var as *map[int]*FlowSummary = nil
+	if !*freshPtr {
+		/* Continue from old state, if present */
+		persist, err := load(*restoreFilePtr)
+		if err != nil {
+			if !os.IsNotExist(err) {
+				fmt.Println("Error on loading old state:", err)
+			}
+			/* Otherwise, file does not exist, not an error, just nothing to load from */
+		} else {
+			hs = &persist.HistoryState
+			as = &persist.TrafficHistoryState
+		}
+	}
+	InitHistory(hs) // initialize history service
+	InitAnomaly(as) // Anomaly detection
 
 	// Connect to MQTT Broker of valibox
 	ConnectToBroker("valibox.", "1884")
@@ -26,6 +45,11 @@ func main() {
 
 	for {
 		time.Sleep(30 * time.Second)
+		if save(*restoreFilePtr) {
+			fmt.Println("Saved state to disk")
+		} else {
+			fmt.Println("Erorr, unable to save state to disk")
+		}
 		// History.RLock()
 		// fmt.Printf("History: %+v\n", History)
 		// History.RUnlock()

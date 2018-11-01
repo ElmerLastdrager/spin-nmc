@@ -11,11 +11,8 @@
 package main
 
 import (
-	"bufio"
-	"encoding/json"
 	"fmt"
 	"net"
-	"os"
 	"sync"
 	"time"
 )
@@ -83,14 +80,17 @@ type SubFlow struct {
 var brokerchan chan SPINdata
 
 // Initialisation
-func InitHistory(load bool, fp string) {
+func InitHistory(stored *HistoryDB) {
 	// Initialize history service
 	// if load: tries to reload from disk
-	if load {
-		fmt.Println("InitHistory(): load not implemented")
-	}
+
 	History.Lock() // obtain write-lock
 	defer History.Unlock()
+
+	if stored != nil {
+		fmt.Println("InitHistory(): loading from disk")
+		History.m = *stored
+	}
 
 	if History.m.Devices == nil {
 		History.m.Devices = make(map[int]Device)
@@ -118,7 +118,7 @@ func HistoryAdd(msg SPINdata) bool {
 
 	if !initialised {
 		// If the History file was not initialised yet, do so now
-		InitHistory(false, "")
+		InitHistory(nil)
 	}
 
 	switch msg.Command {
@@ -430,34 +430,4 @@ func KillHistory() {
 		close(ch)
 	}
 	time.Sleep(250 * time.Millisecond)
-}
-
-// Save history database into file fp
-func saveHistory(fp string) bool {
-	History.Lock()
-	defer History.Unlock()
-	b, err := json.Marshal(History)
-	if err != nil {
-		fmt.Println("Error on dumping History to json:", err)
-		return false
-	}
-
-	// Now writing to file
-	f, err := os.Create(fp)
-	if err != nil {
-		fmt.Println("Error on opening file", fp, ":", err)
-		return false
-	}
-	defer f.Close()
-
-	w := bufio.NewWriter(f)
-	n, err := w.Write(b)
-	if err != nil {
-		fmt.Println("Error on writing file", fp, ":", err)
-		return false
-	}
-
-	w.Flush()
-	fmt.Println("Wrote history to file in", n, "bytes")
-	return true
 }

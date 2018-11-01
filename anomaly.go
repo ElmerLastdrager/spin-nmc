@@ -49,7 +49,12 @@ var TrafficHistory = struct {
 
 // Initialise anomaly detection
 // if load, reload state from disk (filepath in attach)
-func InitAnomaly(load bool, fp string) {
+func InitAnomaly(oldstate *map[int]*FlowSummary) {
+	if oldstate != nil {
+		TrafficHistory.Lock()
+		defer TrafficHistory.Unlock()
+		TrafficHistory.h = *oldstate
+	}
 	// go printResolved(SubscribeResolve())
 	// go printNewTraffic(SubscribeNewTraffic())
 	go processTraffic(SubscribeNewTraffic())

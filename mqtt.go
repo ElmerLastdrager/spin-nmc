@@ -14,32 +14,32 @@ import (
 )
 
 type SPINnode struct {
-	Id        int      `json:"id"`
-	Name      string   `json:"name"`
-	Mac       string   `json:"mac"`
-	Lastseen  int      `json:"lastseen"`
-	Ips       []string `json:"ips"`
-	Domains   []string `json:"domains"`
-	IsBlocked string   `json:"is_blocked",omitempty`
+	Id        int      `json:"id,omitempty"`
+	Name      string   `json:"name,omitempty"`
+	Mac       string   `json:"mac,omitempty"`
+	Lastseen  int      `json:"lastseen,omitempty"`
+	Ips       []string `json:"ips,omitempty"`
+	Domains   []string `json:"domains,omitempty"`
+	IsBlocked string   `json:"is_blocked,omitempty"`
 }
 
 type SPINflow struct {
-	From      SPINnode `json:"from"`
-	To        SPINnode `json:"to"`
-	From_port int      `json:"from_port"`
-	To_port   int      `json:"to_port"`
-	Size      int      `json:"size"`
-	Count     int      `json:"count"`
+	From      SPINnode `json:"from,omitempty"`
+	To        SPINnode `json:"to,omitempty"`
+	From_port int      `json:"from_port,omitempty"`
+	To_port   int      `json:"to_port,omitempty"`
+	Size      int      `json:"size,omitempty"`
+	Count     int      `json:"count,omitempty"`
 }
 
 type SPINresult struct {
-	Flows       []SPINflow `json:"flows",omitempty` // in case of flow data
-	Timestamp   int        `json:"timestamp",omitempty`
-	Total_size  int        `json:"total_size",omitempty`
-	Total_count int        `json:"total_count",omitempty`
-	From        SPINnode   `json:"from",omitempty`        // in case of dnsquery
-	Queriednode SPINnode   `json:"queriednode",omitempty` // in case of dnsquery
-	Query       string     `json:"query",omitempty`       // in case of dnsquery
+	Flows       []SPINflow `json:"flows,omitempty"` // in case of flow data
+	Timestamp   int        `json:"timestamp,omitempty"`
+	Total_size  int        `json:"total_size,omitempty"`
+	Total_count int        `json:"total_count,omitempty"`
+	From        SPINnode   `json:"from,omitempty,omitempty"`        // in case of dnsquery
+	Queriednode SPINnode   `json:"queriednode,omitempty,omitempty"` // in case of dnsquery
+	Query       string     `json:"query,omitempty"`                 // in case of dnsquery
 }
 
 type SPINdata struct {
