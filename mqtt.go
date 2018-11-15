@@ -28,6 +28,7 @@ type SPINflow struct {
 	To        SPINnode `json:"to,omitempty"`
 	From_port int      `json:"from_port,omitempty"`
 	To_port   int      `json:"to_port,omitempty"`
+	Protocol  int      `json:"protocol,omitempty"`
 	Size      int      `json:"size,omitempty"`
 	Count     int      `json:"count,omitempty"`
 }
@@ -75,7 +76,7 @@ const TOPIC_COMMANDS = "SPIN/commands"
 
 func ConnectToBroker(ip string, port string) mqtt.Client {
 	// Connect to message broker, returns new Client.
-	opts := mqtt.NewClientOptions().AddBroker("ws://" + ip + ":" + port)
+	opts := mqtt.NewClientOptions().AddBroker("tcp://" + ip + ":" + port)
 	opts.SetClientID("spin-nms")                       // our identifier
 	opts.SetAutoReconnect(true)                        // once connected, always reconnect
 	opts.SetOnConnectHandler(onConnectHandler)         // when (re)connected

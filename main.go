@@ -19,6 +19,8 @@ func main() {
 	// Parse commandline arguments
 	freshPtr := flag.Bool("fresh", false, "start fresh, i.e. do not restore previous state")
 	restoreFilePtr := flag.String("db", ".spin-nmc-history.db", "restore database file")
+	mqttHostPtr := flag.String("mqtthost", "valibox.", "Host of mqtt server")
+	mqttPortPtr := flag.String("mqttport", "1883", "Port of mqtt server")
 	flag.Parse()
 
 	var hs *HistoryDB = nil
@@ -40,15 +42,15 @@ func main() {
 	InitAnomaly(as) // Anomaly detection
 
 	// Connect to MQTT Broker of valibox
-	ConnectToBroker("valibox.", "1884")
+	ConnectToBroker(*mqttHostPtr, *mqttPortPtr)
 	HandleKillSignal()
 
 	for {
-		time.Sleep(30 * time.Second)
+		time.Sleep(5 * time.Minute)
 		if save(*restoreFilePtr) {
 			fmt.Println("Saved state to disk")
 		} else {
-			fmt.Println("Erorr, unable to save state to disk")
+			fmt.Println("Error, unable to save state to disk")
 		}
 		// History.RLock()
 		// fmt.Printf("History: %+v\n", History)

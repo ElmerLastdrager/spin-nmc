@@ -27,6 +27,8 @@ const RECENT_TRAFFIC = 5               // Last 5 minutes is recent traffic
 const PEAK_MAX_INCREASE = 1.2          // Alert if new peak is 20% higher than old one.
 const PEAK_THRESHOLD = 100 * 1024 * 60 // 100 Kbit/sec (over a minute interval) is always allowed
 const PENALTY_THRESHOLD = 3            // If 3 out of 5 minutes the peak is too high, block!
+const TIME_MEASURING = 10              // In minutes, time to measure (10 means monitor for 0-10 minutes)
+const TIME_REPORTING = 60              // Time to report only, no blocking, in minutes. Longer than this will be blocked.
 
 type Datapoint struct {
 	BytesReceived   int // Number of bytes received by the local device
@@ -228,8 +230,8 @@ func analyseTraffic(nodeid int) {
 
 	duration := tmax.Sub(tmin).Minutes()
 	switch {
-	case duration < 10: // Only measuring
-	case peak && duration < 60: // Reporting, not blocking
+	case duration < TIME_MEASURING: // Only measuring
+	case peak && duration < TIME_REPORTING: // Reporting, not blocking
 		fmt.Println("AD: PEAK device", nodeid, "has peak, no action taken:", recentmaxbytes,
 			"/", recentmaxpackets, "bytes/packets", duration)
 	case peak: // Block bad traffic!
