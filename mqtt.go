@@ -6,6 +6,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -181,13 +182,30 @@ func BrokerSendCommand(command SPINcommand) {
 		fmt.Println("Error while making JSON of command", command.Command, command.Argument)
 		return
 	}
-
-	if token := client.Publish(TOPIC_COMMANDS, 0, false, bcmd); token.Wait() && token.Error() != nil {
-		fmt.Println("MQTT: Error sending command:", token.Error())
+	err = BrokerSend(bcmd, TOPIC_COMMANDS)
+	if err != nil {
+		fmt.Println(err)
 	}
 }
 
-//
-// func BrokerSubscribeInfo(topic string) chan SPINfilter {
-//     // body
-// }
+func BrokerSend(message []byte, topic string) error {
+	if token := client.Publish(topic, 0, false, message); token.Wait() && token.Error() != nil {
+		errors.New(fmt.Sprintf("MQTT: Error sending message: %v", token.Error()))
+	}
+	return nil
+}
+
+func BrokerSubscribe(topic string) (chan []byte, error) {
+	// Generic handler for MQTT subscriptions
+	// returns channel to listen to for events
+	ch := make(chan []byte, CHANNEL_BUFFER)
+	if client == nil {
+		return nil, errors.New("No client available")
+	}
+	if token := client.Subscribe(topic, 0, func(client mqtt.Client, msg mqtt.Message) {
+		ch <- msg.Payload()
+	}); token.Wait() && token.Error() != nil {
+		return nil, errors.New(fmt.Sprintf("Unable to subscribe: %v", token.Error()))
+	}
+	return ch, nil
+}

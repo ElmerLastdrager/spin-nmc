@@ -102,9 +102,7 @@ func InitHistory(stored *HistoryDB) {
 			if !ok {
 				break
 			}
-			if !HistoryAdd(data) {
-				fmt.Println("messageHandler(): unable to add flow to history")
-			}
+			HistoryAdd(data)
 		}
 	}()
 	History.initialised = true
@@ -235,11 +233,7 @@ func HistoryAdd(msg SPINdata) bool {
 		go notifyResolve(deviceid, msg.Result.Query, rip)
 
 		return true
-	case "blocked":
-		// Ignore (for now)
-		return true
 	}
-	fmt.Println("HistoryAdd() failed: ", msg.Command)
 	return false
 }
 

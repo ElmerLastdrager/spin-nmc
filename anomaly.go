@@ -18,6 +18,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -61,6 +62,7 @@ func InitAnomaly(oldstate *map[int]*FlowSummary) {
 	// go printNewTraffic(SubscribeNewTraffic())
 	go processTraffic(SubscribeNewTraffic())
 	go processTraffic(SubscribeExtraTraffic())
+	go listenWebInfo()
 }
 
 // Process new datapoint to existing flow, or new flow.
@@ -154,25 +156,17 @@ func getRoundedMinute(t time.Time) time.Time {
 
    Bug: 1 minute high spike, with no traffic afterwards, no analysis done.
       -> fix properly, this is just a POC.
+
+   Returns: recent bytes, recent packets, maxbytes, maxpackets
 */
-func analyseTraffic(nodeid int) {
-	// body
+func getPeak(nodeid int) ([]int, []int, int, int, int, int) {
 	TrafficHistory.RLock()
 	defer TrafficHistory.RUnlock()
-	dp := TrafficHistory.h[nodeid].Datapoints
-
-	// Store all defaults
-	tmax := time.Now().AddDate(-10, 0, 0) // 10 years in the past
-	tmin := time.Now().AddDate(10, 0, 0)  // 10 years in the future
-
-	for k := range dp {
-		if tmax.Before(k) {
-			tmax = k
-		}
-		if tmin.After(k) {
-			tmin = k
-		}
+	_, exists := TrafficHistory.h[nodeid]
+	if !exists {
+		return []int{}, []int{}, 0, 0, 0, 0
 	}
+	dp := TrafficHistory.h[nodeid].Datapoints
 
 	// At this moment: tmax is the lastest recorded time
 	// fmt.Printf("AD: Analysing outgoing traffic of %v for %v\n", nodeid, tmax.Sub(tmin))
@@ -209,8 +203,29 @@ func analyseTraffic(nodeid int) {
 		// fmt.Printf("AD: device %v traffic %v/%v bytes and %v/%v packets (in/out) %v\n", nodeid, v.BytesReceived,
 		//   v.BytesSent, v.PacketsReceived, v.PacketsSent, k)
 	}
+	return recentbytes, recentpackets, recentmaxbytes, recentmaxpackets, maxbytes, maxpackets
+}
 
+func getTimeMinMax(dp map[time.Time]*Datapoint) (time.Time, time.Time) {
+	// Store all defaults
+	tmax := time.Now().AddDate(-10, 0, 0) // 10 years in the past
+	tmin := time.Now().AddDate(10, 0, 0)  // 10 years in the future
+
+	for k := range dp {
+		if tmax.Before(k) {
+			tmax = k
+		}
+		if tmin.After(k) {
+			tmin = k
+		}
+	}
+	return tmin, tmax
+}
+
+func analyseTraffic(nodeid int) {
 	// fmt.Println("AD: device", nodeid, "model (b/p): ", maxbytes, "/", maxpackets)
+	recentbytes, recentpackets, recentmaxbytes, recentmaxpackets,
+		maxbytes, maxpackets := getPeak(nodeid)
 
 	// Continue only when a peak was found
 	peak := false
@@ -227,6 +242,12 @@ func analyseTraffic(nodeid int) {
 	}
 
 	peak = penaltyp > PENALTY_THRESHOLD || penaltyb > PENALTY_THRESHOLD
+
+	TrafficHistory.RLock()
+	dp := TrafficHistory.h[nodeid].Datapoints
+	tmin, tmax := getTimeMinMax(dp)
+	dp = nil
+	TrafficHistory.RUnlock()
 
 	duration := tmax.Sub(tmin).Minutes()
 	switch {
@@ -245,4 +266,86 @@ func analyseTraffic(nodeid int) {
 		fmt.Println("AD: device", nodeid, "all okay", recentmaxbytes, "/", recentmaxpackets,
 			"bytes/packets", "limit", maxbytes, "/", maxpackets)
 	}
+}
+
+func listenWebInfo() {
+	brokerchan, brokererr := BrokerSubscribe(TOPIC_COMMANDS)
+	if brokererr != nil {
+		fmt.Println("listenWebInfo: unable to subscribe to commands topic")
+		time.Sleep(1 * time.Second)
+		go listenWebInfo()
+		return
+	}
+	go func() {
+		for {
+			data, ok := <-brokerchan
+			if !ok {
+				break
+			}
+			var parsed SPINcommand
+			err := json.Unmarshal(data, &parsed)
+			if err != nil {
+				continue
+			}
+
+			switch parsed.Command {
+			case "get_peak_info":
+				// Return peak information for node in arguments
+				nodeid := parsed.Argument
+				if nodeid <= 0 {
+					continue
+				}
+				// var nodeid int
+				// var err error
+				// if nodeid, err = strconv.Atoi(nodeidstr); err != nil {
+				//     continue
+				// }
+				traffic := make(map[string]interface{})
+				items := make(map[string]interface{})
+
+				_, _, _, _, maxbytes, maxpackets := getPeak(nodeid)
+				traffic["maxbytes"] = maxbytes
+				traffic["maxpackets"] = maxpackets
+
+				TrafficHistory.RLock()
+
+				node, exists := TrafficHistory.h[nodeid]
+				results := make(map[string]interface{})
+				if exists {
+					dp := node.Datapoints
+					tmin, tmax := getTimeMinMax(dp)
+					traffic["enforcing"] = tmax.Sub(tmin).Minutes() >= TIME_REPORTING
+
+					for k, v := range dp {
+						if time.Now().Sub(k).Minutes() <= 60 {
+							// Send back last 60 minutes of traffic
+							items[fmt.Sprintf("%0.f", 0-time.Now().Sub(k).Minutes())] = map[string]interface{}{
+								"bytes":   v.BytesSent,
+								"packets": v.PacketsSent}
+						}
+					}
+					traffic["items"] = items
+
+					results["command"] = "peakinfo"
+					results["argument"] = fmt.Sprintf("%v", nodeid)
+					results["result"] = traffic
+
+				} else {
+					// Return error, no information.
+					results["command"] = "peakinfo"
+					results["argument"] = fmt.Sprintf("%v", nodeid)
+				}
+
+				bresults, err := json.Marshal(results)
+				if err != nil {
+					fmt.Println("Error while making JSON of peak info", nodeid)
+					continue
+				}
+				BrokerSend(bresults, TOPIC_TRAFFIC)
+
+				TrafficHistory.RUnlock()
+
+			}
+		}
+	}()
 }
