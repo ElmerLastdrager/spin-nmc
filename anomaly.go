@@ -304,8 +304,8 @@ func listenWebInfo() {
 				items := make(map[string]interface{})
 
 				_, _, _, _, maxbytes, maxpackets := getPeak(nodeid)
-				traffic["maxbytes"] = maxbytes
-				traffic["maxpackets"] = maxpackets
+				traffic["maxbytes"] = int(float64(maxbytes) * PEAK_MAX_INCREASE)
+				traffic["maxpackets"] = int(float64(maxpackets) * PEAK_MAX_INCREASE)
 
 				TrafficHistory.RLock()
 
